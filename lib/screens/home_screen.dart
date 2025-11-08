@@ -7,6 +7,8 @@ import 'package:sustainableclothing_app/screens/product_detail_screen.dart';
 import 'package:sustainableclothing_app/providers/cart_provider.dart'; // 1. ADD THIS
 import 'package:sustainableclothing_app/screens/cart_screen.dart'; // 2. ADD THIS
 import 'package:provider/provider.dart';
+// --- ADD THIS IMPORT ---
+import 'package:sustainableclothing_app/screens/order_history_screen.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -67,6 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Text(currentUser != null ? 'Welcome, ${currentUser.email}' : 'Home'),
         actions: [
 
+          // 1. Your existing Cart Icon
           Consumer<CartProvider>(
             builder: (context, cart, child) {
               return Badge(
@@ -89,6 +92,20 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
 
+          // 2. --- ADD THIS NEW BUTTON ---
+          IconButton(
+            icon: const Icon(Icons.receipt_long), // A "receipt" icon
+            tooltip: 'My Orders',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const OrderHistoryScreen(),
+                ),
+              );
+            },
+          ),
+
+          // 3. Your existing Admin Icon
           // This "if" statement will now work correctly
           if (_userRole == 'admin')
             IconButton(
@@ -103,6 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
 
+          // 4. Your existing Logout Icon
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Logout',

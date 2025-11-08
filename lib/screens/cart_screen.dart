@@ -1,10 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sustainableclothing_app/providers/cart_provider.dart';
+// 1. ADD THIS IMPORT (using your project's package name)
+import 'package:sustainableclothing_app/screens/order_success_screen.dart';
 
-class CartScreen extends StatelessWidget {
+// 2. Change this to a StatefulWidget
+class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
 
+  @override
+  // 3. Create the State
+  State<CartScreen> createState() => _CartScreenState();
+}
+
+// 4. Rename the class to _CartScreenState
+class _CartScreenState extends State<CartScreen> {
+  // 5. Add our loading state variable
+  bool _isLoading = false;
+
+  // 6. Move the build method inside here
   @override
   Widget build(BuildContext context) {
     // 1. Get the cart. This time, we *want* to listen (default)
@@ -73,6 +87,62 @@ class CartScreen extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          ),
+
+          // 4. --- ADD THIS NEW BUTTON ---
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size.fromHeight(50), // Wide button
+              ),
+
+              // 5. Disable button if loading OR if cart is empty
+              onPressed: (_isLoading || cart.items.isEmpty)
+                  ? null
+                  : () async {
+                // 6. Start the loading spinner
+                setState(() {
+                  _isLoading = true;
+                });
+
+                try {
+                  // 7. Get provider (listen: false is for functions)
+                  final cartProvider =
+                  Provider.of<CartProvider>(context, listen: false);
+
+                  // 8. Call our new methods
+                  await cartProvider.placeOrder();
+                  await cartProvider.clearCart();
+
+                  // 9. Navigate to success screen
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(
+                        builder: (context) => const OrderSuccessScreen()),
+                        (route) => false,
+                  );
+                } catch (e) {
+                  // 10. Show error if placeOrder() fails
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to place order: $e')),
+                  );
+                } finally {
+                  // 11. ALWAYS stop the spinner
+                  if (mounted) {
+                    setState(() {
+                      _isLoading = false;
+                    });
+                  }
+                }
+              },
+
+              // 12. Show spinner or text based on loading state
+              child: _isLoading
+                  ? const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              )
+                  : const Text('Place Order'),
             ),
           ),
           // We'll add a "Checkout" button here in a future module
