@@ -1,4 +1,3 @@
-//
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart'; // Used for formatting the order date
