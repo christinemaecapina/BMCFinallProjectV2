@@ -1,3 +1,4 @@
+//
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart'; // Used for formatting the order date
@@ -49,7 +50,8 @@ class _AdminOrderScreenState extends State<AdminOrderScreen> {
         return AlertDialog(
           title: const Text('Update Order Status'),
           content: Column(
-            mainAxisSize: MainAxisSize.min, // Make the dialog size wrap the content
+            mainAxisSize: MainAxisSize.min,
+            // Make the dialog size wrap the content
             children: statuses.map((status) {
               // Create a list tile button for each status option
               return ListTile(
@@ -127,13 +129,15 @@ class _AdminOrderScreenState extends State<AdminOrderScreen> {
                 margin: const EdgeInsets.all(8.0),
                 child: ListTile(
                   title: Text(
-                    'Order ID: ${order.id}', // Display the unique Firestore document ID
+                    'Order ID: ${order.id}',
+                    // Display the unique Firestore document ID
                     style:
                     const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                   subtitle: Text(
                     'User ID: ${orderData['userId']}\n' // Show which user placed the order
-                        'Total: ₱${(orderData['totalPrice']).toStringAsFixed(2)} | Date: $formattedDate',
+                        'Total: ₱${(orderData['totalPrice']).toStringAsFixed(
+                        2)} | Date: $formattedDate',
                   ),
                   isThreeLine: true,
 
