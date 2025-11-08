@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "363744069097",
+    "project_id": "sustainable-clothing-app",
+    "storage_bucket": "sustainable-clothing-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:363744069097:android:6933621fdbafca4e4cf778",
+        "android_client_info": {
+          "package_name": "com.example.sustainableclothing_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCgNmERGgR_wpIGiJyD-nccqkPTLX_kEQM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
