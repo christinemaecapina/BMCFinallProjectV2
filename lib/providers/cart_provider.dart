@@ -1,9 +1,8 @@
-// 1. ADD THESE IMPORTS
-import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-// --------------------
+// lib/providers/cart_provider.dart
+import 'dart:async'; // 1. ADD THIS (for StreamSubscription)
 import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // 2. ADD THIS
+import 'package:cloud_firestore/cloud_firestore.dart'; // 3. ADD THIS
 
 class CartItem {
   final String id; // The unique product ID
@@ -33,13 +32,16 @@ class CartItem {
     return CartItem(
       id: json['id'],
       name: json['name'],
-      price: json['price'],
-      quantity: json['quantity'],
+      // Use 'as num' for robust type handling from Firestore
+      price: (json['price'] as num).toDouble(),
+      quantity: (json['quantity'] as num).toInt(),
     );
   }
 }
 
 class CartProvider with ChangeNotifier {
+  // 2. This is the private list of items.
+  //    No one outside this class can access it directly.
   // 4. Change this: _items is no longer final
   List<CartItem> _items = [];
 
@@ -54,17 +56,12 @@ class CartProvider with ChangeNotifier {
   // 3. A public "getter" to let widgets *read* the list of items
   List<CartItem> get items => _items;
 
-  // 4. A public "getter" to calculate the total number of items
-  int get itemCount {
-    int total = 0;
-    for (var item in _items) {
-      total += item.quantity;
-    }
-    return total;
-  }
 
-  // 5. A public "getter" to calculate the total price
-  double get totalPrice {
+  // --- THIS IS THE GETTERS SECTION (UPDATED FOR VAT) ---
+
+  // 1. RENAME 'totalPrice' to 'subtotal'
+  //    This is the total price *before* tax.
+  double get subtotal {
     double total = 0.0;
     for (var item in _items) {
       total += (item.price * item.quantity);
@@ -72,26 +69,52 @@ class CartProvider with ChangeNotifier {
     return total;
   }
 
+  // 2. ADD this new getter for VAT (12%)
+  double get vat {
+    return subtotal * 0.12; // 12% of the subtotal
+  }
+
+  // 3. ADD this new getter for the FINAL total
+  double get totalPriceWithVat {
+    return subtotal + vat;
+  }
+
+  // 4. We can leave the old 'totalPrice' getter for now,
+  //    or delete it. Let's update 'itemCount' to be cleaner:
+  // 4. A public "getter" to calculate the total number of items
+  int get itemCount {
+    // This 'fold' is a cleaner way to sum a list.
+    return _items.fold(0, (total, item) => total + item.quantity);
+  }
+  // --- END OF GETTERS SECTION ---
+
+
   // 7. ADD THIS CONSTRUCTOR
+  // --- THIS IS THE FIX (PART 1) ---
+  // 1. DELETE the entire CartProvider() constructor logic.
+
+  // 2. ADD this new EMPTY constructor.
   CartProvider() {
-    print('CartProvider initialized');
-    // Listen to authentication changes
+    print('CartProvider created.');
+  }
+
+  // 3. ADD this new PUBLIC method. We moved all the logic here.
+  void initializeAuthListener() {
+    print('CartProvider auth listener initialized');
     _authSubscription = _auth.authStateChanges().listen((User? user) {
       if (user == null) {
-        // User is logged out
         print('User logged out, clearing cart.');
         _userId = null;
-        _items = []; // Clear local cart
+        _items = [];
       } else {
-        // User is logged in
         print('User logged in: ${user.uid}. Fetching cart...');
         _userId = user.uid;
-        _fetchCart(); // Load their cart from Firestore
+        _fetchCart();
       }
-      // Notify listeners to update UI (e.g., clear cart badge on logout)
       notifyListeners();
     });
   }
+  // --- END OF FIX ---
 
   // 8. ADD THIS: Fetches the cart from Firestore
   Future<void> _fetchCart() async {
@@ -101,7 +124,7 @@ class CartProvider with ChangeNotifier {
       // 1. Get the user's specific cart document
       final doc = await _firestore.collection('userCarts').doc(_userId).get();
 
-      if (doc.exists && doc.data()!['cartItems'] != null) {
+      if (doc.exists && doc.data()?['cartItems'] != null) {
         // 2. Get the list of items from the document
         final List<dynamic> cartData = doc.data()!['cartItems'];
 
@@ -140,32 +163,44 @@ class CartProvider with ChangeNotifier {
     }
   }
 
-  // 6. The main logic: "Add Item to Cart"
-  void addItem(String id, String name, double price) {
-    // 7. Check if the item is already in the cart
+  // --- THIS IS THE UPDATED FUNCTION (Part A) ---
+  // 1. THIS IS THE OLD FUNCTION:
+  // void addItem(String id, String name, double price) { ... }
+
+  // 2. THIS IS THE NEW, UPDATED FUNCTION:
+  void addItem(String id, String name, double price, int quantity) {
+    // 3. Check if the item is already in the cart
     var index = _items.indexWhere((item) => item.id == id);
 
     if (index != -1) {
-      // 8. If YES: just increase the quantity
-      _items[index].quantity++;
+      // 4. If YES: Add the new quantity to the existing quantity
+      _items[index].quantity += quantity;
     } else {
-      // 9. If NO: add it to the list as a new item
-      _items.add(CartItem(id: id, name: name, price: price));
+      // 5. If NO: Add the item with the specified quantity
+      _items.add(CartItem(
+        id: id,
+        name: name,
+        price: price,
+        quantity: quantity, // Use the quantity from the parameter
+      ));
     }
 
-    _saveCart(); // 10. ADD THIS LINE
-    // 10. CRITICAL: This tells all "listening" widgets to rebuild!
-    notifyListeners();
+    _saveCart(); // This is the same
+    notifyListeners(); // This is the same
   }
+  // --- END OF UPDATED FUNCTION ---
+
 
   // 11. The "Remove Item from Cart" logic
   void removeItem(String id) {
     _items.removeWhere((item) => item.id == id);
+
     _saveCart(); // 11. ADD THIS LINE
+
     notifyListeners(); // Tell widgets to rebuild
   }
 
-  // --- NEW METHODS FOR MODULE 10 ---
+  // --- METHODS ADDED IN MODULE 10 ---
 
   // 1. ADD THIS: Creates an order in the 'orders' collection
   Future<void> placeOrder() async {
@@ -180,19 +215,25 @@ class CartProvider with ChangeNotifier {
       final List<Map<String, dynamic>> cartData =
       _items.map((item) => item.toJson()).toList();
 
-      // 4. Get total price and item count from our getters
-      final double total = totalPrice;
+      // 1. --- THIS IS THE CHANGE ---
+      //    Get all our new calculated values
+      final double sub = subtotal;
+      final double v = vat;
+      final double total = totalPriceWithVat;
       final int count = itemCount;
 
-      // 5. Create a new document in the 'orders' collection
+      // 2. Update the data we save to Firestore
       await _firestore.collection('orders').add({
         'userId': _userId,
         'items': cartData, // Our list of item maps
-        'totalPrice': total,
+        'subtotal': sub,      // 3. ADD THIS
+        'vat': v,             // 4. ADD THIS
+        'totalPrice': total,  // 5. This is now the VAT-inclusive price
         'itemCount': count,
         'status': 'Pending', // 6. IMPORTANT: For admin verification
         'createdAt': FieldValue.serverTimestamp(), // For sorting
       });
+      // --- END OF CHANGE ---
 
       // 7. Note: We DO NOT clear the cart here.
       //    We'll call clearCart() separately from the UI after this succeeds.
@@ -225,6 +266,8 @@ class CartProvider with ChangeNotifier {
     // 13. Notify all listeners (this will clear the UI)
     notifyListeners();
   }
+
+  // --- END OF METHODS ADDED IN MODULE 10 ---
 
   // 12. ADD THIS METHOD
   @override

@@ -1,15 +1,20 @@
+// lib/screens/home_screen.dart
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sustainableclothing_app/screens/admin_panel_screen.dart';
 import 'package:sustainableclothing_app/widgets/product_card.dart';
 import 'package:sustainableclothing_app/screens/product_detail_screen.dart';
-import 'package:sustainableclothing_app/providers/cart_provider.dart'; // 1. ADD THIS
-import 'package:sustainableclothing_app/screens/cart_screen.dart'; // 2. ADD THIS
+import 'package:sustainableclothing_app/providers/cart_provider.dart';
+import 'package:sustainableclothing_app/screens/cart_screen.dart';
 import 'package:provider/provider.dart';
-// --- ADD THIS IMPORT ---
 import 'package:sustainableclothing_app/screens/order_history_screen.dart';
+import 'package:sustainableclothing_app/screens/profile_screen.dart';
+import 'package:sustainableclothing_app/widgets/notification_icon.dart';
 
+// 1. ADD THIS IMPORT for the new chat screen
+import 'package:sustainableclothing_app/screens/chat_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,7 +25,9 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String _userRole = 'user';
-
+  // 2. Add instances for FireAuth and FireStore
+  final User? _currentUser = FirebaseAuth.instance.currentUser;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   @override
   void initState() {
@@ -31,12 +38,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _fetchUserRole() async {
     final User? user = FirebaseAuth.instance.currentUser;
 
-    // This check is now reliable.
     if (user == null) return;
     try {
       final doc = await FirebaseFirestore.instance
           .collection('users')
-          .doc(user.uid) // <-- Use the local 'user' variable
+          .doc(user.uid)
           .get();
 
       if (doc.exists && doc.data() != null) {
@@ -51,32 +57,28 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _signOut() async {
-    try {
-      await FirebaseAuth.instance.signOut();
-    } catch (e) {
-      print('Error signing out: $e');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final User? currentUser = FirebaseAuth.instance.currentUser;
+    // 3. Use the local _currentUser variable
+    final User? currentUser = _currentUser;
 
     return Scaffold(
       appBar: AppBar(
-        // Use the local 'currentUser' variable
-        title: Text(currentUser != null ? 'Welcome, ${currentUser.email}' : 'Home'),
+        // --- START: THEME CHANGE - Replaced Text Title with Image Logo ---
+        title: Image.asset(
+          'assets/images/app_logo.png', // The path to your logo
+          height: 40, // Set a fixed height
+        ),
+        // --- END: THEME CHANGE ---
+
         actions: [
 
-          // 1. Your existing Cart Icon
+          // 1. Cart Icon
           Consumer<CartProvider>(
             builder: (context, cart, child) {
               return Badge(
                 label: Text(cart.itemCount.toString()),
                 isLabelVisible: cart.itemCount > 0,
-
-
                 child: IconButton(
                   icon: const Icon(Icons.shopping_cart),
                   onPressed: () {
@@ -87,14 +89,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   },
                 ),
-
               );
             },
           ),
 
-          // 2. --- ADD THIS NEW BUTTON ---
+          // 2. Notification Bell (Unchanged)
+          const NotificationIcon(),
+
+          // 3. "My Orders" Icon (Unchanged)
           IconButton(
-            icon: const Icon(Icons.receipt_long), // A "receipt" icon
+            icon: const Icon(Icons.receipt_long),
             tooltip: 'My Orders',
             onPressed: () {
               Navigator.of(context).push(
@@ -105,8 +109,7 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
 
-          // 3. Your existing Admin Icon
-          // This "if" statement will now work correctly
+          // 4. Admin Icon (Unchanged)
           if (_userRole == 'admin')
             IconButton(
               icon: const Icon(Icons.admin_panel_settings),
@@ -120,16 +123,94 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
 
-          // 4. Your existing Logout Icon
+          // 5. Profile Icon (Unchanged)
           IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
-            onPressed: _signOut,
+            icon: const Icon(Icons.person_outline),
+            tooltip: 'Profile',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const ProfileScreen(),
+                ),
+              );
+            },
           ),
         ],
       ),
-      // This 'body' code was already correct.
+
+      drawer: Drawer(
+        // ... (Drawer content is unchanged)
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor,
+              ),
+              child: Text(
+                currentUser?.email ?? 'Menu',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.home),
+              title: const Text('Home'),
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
+            const Divider(),
+          ],
+        ),
+      ),
+
+      // 6. FLOATING ACTION BUTTON WITH CHAT BADGE (Unchanged)
+      floatingActionButton: _userRole == 'user' && _currentUser != null
+          ? StreamBuilder<DocumentSnapshot>(
+        // Listen to *this user's* chat document
+        stream: _firestore.collection('chats').doc(_currentUser!.uid).snapshots(),
+        builder: (context, snapshot) {
+
+          int unreadCount = 0;
+          // Check if the document exists and has the count field
+          if (snapshot.hasData && snapshot.data!.exists) {
+            final data = snapshot.data!.data();
+            if (data != null) {
+              // Safely get the count
+              unreadCount = (data as Map<String, dynamic>)['unreadByUserCount'] as int? ?? 0;
+            }
+          }
+
+          // Wrap the FAB in the Badge widget
+          return Badge(
+            label: Text('$unreadCount'),
+            isLabelVisible: unreadCount > 0, // Only show if count > 0
+
+            // The FAB is the *child* of the Badge
+            child: FloatingActionButton.extended(
+              icon: const Icon(Icons.support_agent),
+              label: const Text('Contact Admin'),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => ChatScreen(
+                      chatRoomId: _currentUser!.uid, // Chat room is the User's UID
+                    ),
+                  ),
+                );
+              },
+            ),
+          );
+        },
+      )
+          : null, // If admin or not logged in, don't show the FAB
+      // --- END NEW FAB ---
+
       body: StreamBuilder<QuerySnapshot>(
+        // ... (Product listing StreamBuilder remains the same)
         stream: FirebaseFirestore.instance
             .collection('products')
             .orderBy('createdAt', descending: true)

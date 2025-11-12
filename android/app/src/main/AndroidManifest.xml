@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- FIX 4: ADD THIS ONE LINE TO ENABLE INTERNET ACCESS -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:label="sustainableclothing_app"
         android:name="${applicationName}"
